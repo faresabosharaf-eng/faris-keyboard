@@ -93,6 +93,7 @@ class FarisKeyboardService : InputMethodService() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(navy)
             setPadding(dp(3), dp(4), dp(3), dp(4))
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, h)
         }
         showPage()
