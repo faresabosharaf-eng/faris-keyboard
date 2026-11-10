@@ -127,7 +127,7 @@ class FarisKeyboardService : InputMethodService() {
 
         val syms = "!@#\$%^&*()"
         val n = ArrayList<K>()
-        n += if (arabic) ch("ذ", KeyEvent.KEYCODE_GRAVE) else ch("`", KeyEvent.KEYCODE_GRAVE, "~")
+        n += ch("`", KeyEvent.KEYCODE_GRAVE, "~")
         for (i in 1..10) {
             val d = i % 10
             n += ch(d.toString(), KeyEvent.KEYCODE_0 + d, syms[i - 1].toString())
@@ -140,7 +140,7 @@ class FarisKeyboardService : InputMethodService() {
         r2 += key("Tab", KeyEvent.KEYCODE_TAB, 1.5f)
         val c2 = codesOf("qwertyuiop") + listOf(KeyEvent.KEYCODE_LEFT_BRACKET, KeyEvent.KEYCODE_RIGHT_BRACKET)
         if (arabic) {
-            r2 += keysOf("ضصثقفغعهخحجد".map { it.toString() }, c2, emptyList())
+            r2 += keysOf("ضصثقفغعهخحج".map { it.toString() }, c2, emptyList())
         } else {
             r2 += keysOf("qwertyuiop".map { it.toString() } + listOf("[", "]"), c2, nulls(10) + listOf("{", "}"))
         }
@@ -161,7 +161,7 @@ class FarisKeyboardService : InputMethodService() {
         val c4 = codesOf("zxcvbnm") + listOf(KeyEvent.KEYCODE_COMMA, KeyEvent.KEYCODE_PERIOD, KeyEvent.KEYCODE_SLASH)
         if (arabic) {
             r4 += keysOf(
-                listOf("ئ", "ء", "ؤ", "ر", "لا", "ى", "ة", "و", "ز", "ظ", "،", "."),
+                listOf("ذ", "ء", "ؤ", "ر", "ى", "ة", "و", "ز", "ظ", "د", "،", "."),
                 c4 + listOf(KeyEvent.KEYCODE_COMMA, KeyEvent.KEYCODE_PERIOD),
                 nulls(10) + listOf("؟", ":")
             )
