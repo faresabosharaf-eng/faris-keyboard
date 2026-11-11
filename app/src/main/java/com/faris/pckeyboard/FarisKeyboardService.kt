@@ -46,7 +46,7 @@ class FarisKeyboardService : InputMethodService() {
         val repeat: Boolean = false
     )
 
-    private class Row(val keys: List<K>, val h: Float = 1f)
+    private class Row(val keys: List<K>, val h: Float = 1f, val bar: Boolean = false)
 
     private class T(val bg: Int, val key: Int, val special: Int, val active: Int, val text: Int, val pressed: Int)
 
@@ -81,6 +81,9 @@ class FarisKeyboardService : InputMethodService() {
     private var win = false
     private var numLock = true
     private var emojiCat = 0
+
+    private var totalH = 0
+    private var unitPx = 0f
 
     private lateinit var root: FrameLayout
     private lateinit var container: LinearLayout
@@ -153,16 +156,21 @@ class FarisKeyboardService : InputMethodService() {
 
     private fun prefs() = getSharedPreferences("faris_kb", MODE_PRIVATE)
 
+    private fun setUnit(totalWeight: Float) {
+        unitPx = (totalH - dp(8)) / totalWeight
+    }
+
+    private fun sumH(rows: List<Row>): Float = rows.fold(0f) { a, r -> a + r.h }
+
     private fun buildRoot(): View {
-        val h = minOf(dp(290), (resources.displayMetrics.heightPixels * 0.58f).toInt())
+        totalH = minOf(dp(260), (resources.displayMetrics.heightPixels * 0.5f).toInt())
         root = FrameLayout(this)
         root.layoutDirection = View.LAYOUT_DIRECTION_LTR
         root.setBackgroundColor(th.bg)
-        root.layoutParams = ViewGroup.LayoutParams(MP, h)
         container = LinearLayout(this)
         container.orientation = LinearLayout.VERTICAL
         container.setPadding(dp(3), dp(4), dp(3), dp(4))
-        root.addView(container, FrameLayout.LayoutParams(MP, MP))
+        root.addView(container, FrameLayout.LayoutParams(MP, totalH))
         overlay = LinearLayout(this)
         overlay.orientation = LinearLayout.HORIZONTAL
         overlay.visibility = View.GONE
@@ -195,11 +203,9 @@ class FarisKeyboardService : InputMethodService() {
     private fun space(w: Float) = K(" ", null, KeyEvent.KEYCODE_SPACE, Kind.CHAR, w, "Space")
 
     private fun mainRows(): List<Row> {
-        // صف الأيقونات (فوق F1..F4)
+        // شريط الأيقونات: ألوان | صوت | حافظة | إيموجي
         val icons = listOf(
-            spacer(1f),
-            mod("😀", Kind.EMOJI), mod("📋", Kind.CLIP), mod("🎤", Kind.MIC), mod("🎨", Kind.THEME),
-            spacer(8f)
+            mod("🎨", Kind.THEME), mod("🎤", Kind.MIC), mod("📋", Kind.CLIP), mod("🙂", Kind.EMOJI)
         )
 
         val f = ArrayList<K>()
@@ -264,7 +270,7 @@ class FarisKeyboardService : InputMethodService() {
             key("↑", KeyEvent.KEYCODE_DPAD_UP, 1f, true),
             key("→", KeyEvent.KEYCODE_DPAD_RIGHT, 1f, true)
         )
-        return listOf(Row(icons, 0.7f), Row(f, 0.75f), Row(n), Row(r2), Row(r3), Row(r4), Row(r5))
+        return listOf(Row(icons, 0.95f, true), Row(f, 0.7f), Row(n), Row(r2), Row(r3), Row(r4), Row(r5))
     }
 
     private fun fnRows(): List<Row> = listOf(
@@ -322,12 +328,24 @@ class FarisKeyboardService : InputMethodService() {
         container.removeAllViews()
         keyViews.clear()
         when (page) {
-            Page.MAIN -> buildRows(mainRows())
-            Page.FN -> buildRows(fnRows())
-            Page.NUM -> buildRows(numRows())
-            Page.EMOJI -> showEmoji()
-            Page.CLIP -> showClip()
-            Page.THEME -> showThemes()
+            Page.MAIN -> {
+                val rows = mainRows()
+                setUnit(sumH(rows))
+                buildRows(rows)
+            }
+            Page.FN -> {
+                val rows = fnRows()
+                setUnit(sumH(rows))
+                buildRows(rows)
+            }
+            Page.NUM -> {
+                val rows = numRows()
+                setUnit(sumH(rows))
+                buildRows(rows)
+            }
+            Page.EMOJI -> { setUnit(6f); showEmoji() }
+            Page.CLIP -> { setUnit(6f); showClip() }
+            Page.THEME -> { setUnit(6f); showThemes() }
         }
         refresh()
     }
@@ -336,16 +354,33 @@ class FarisKeyboardService : InputMethodService() {
         for (r in rows) {
             val rl = LinearLayout(this)
             rl.orientation = LinearLayout.HORIZONTAL
-            container.addView(rl, LinearLayout.LayoutParams(MP, 0, r.h))
+            if (r.bar) {
+                val bb = GradientDrawable()
+                bb.cornerRadius = dp(18).toFloat()
+                bb.setColor(th.bg)
+                bb.setStroke(dp(1), th.pressed)
+                rl.background = bb
+                rl.setPadding(dp(4), dp(2), dp(4), dp(2))
+            }
+            container.addView(rl, LinearLayout.LayoutParams(MP, (unitPx * r.h).toInt()))
+            var first = true
             for (k in r.keys) {
                 if (k.kind == Kind.SPACER) {
                     rl.addView(View(this), LinearLayout.LayoutParams(0, MP, k.weight))
                     continue
                 }
+                if (r.bar && !first) {
+                    val dv = View(this)
+                    dv.setBackgroundColor(th.pressed)
+                    val dl = LinearLayout.LayoutParams(dp(1), MP)
+                    dl.setMargins(0, dp(8), 0, dp(8))
+                    rl.addView(dv, dl)
+                }
+                first = false
                 val len = (k.display ?: k.label).length
                 val isIcon = k.kind == Kind.EMOJI || k.kind == Kind.CLIP || k.kind == Kind.MIC || k.kind == Kind.THEME
                 val sizeSp = when {
-                    isIcon -> 14f
+                    isIcon -> 18f
                     k.kind == Kind.EMOJI_CAT -> 15f
                     r.h < 1f -> 11f
                     len > 2 -> 12f
@@ -358,7 +393,7 @@ class FarisKeyboardService : InputMethodService() {
                 tv.maxLines = 1
                 tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
                 val bg = GradientDrawable()
-                bg.cornerRadius = dp(6).toFloat()
+                bg.cornerRadius = dp(if (r.bar) 14 else 7).toFloat()
                 bg.setColor(th.key)
                 tv.background = bg
 
@@ -427,7 +462,8 @@ class FarisKeyboardService : InputMethodService() {
                     true
                 }
                 val lpar = LinearLayout.LayoutParams(0, MP, k.weight)
-                lpar.setMargins(dp(2), dp(2), dp(2), dp(2))
+                val m = if (r.bar) dp(3) else dp(2)
+                lpar.setMargins(m, m, m, m)
                 rl.addView(tv, lpar)
                 keyViews.add(Pair(tv, k))
             }
@@ -570,7 +606,7 @@ class FarisKeyboardService : InputMethodService() {
             i += perRow
         }
         sv.addView(col)
-        container.addView(sv, LinearLayout.LayoutParams(MP, 0, 5f))
+        container.addView(sv, LinearLayout.LayoutParams(MP, (unitPx * 5f).toInt()))
         val tabs = emojiCats.mapIndexed { idx, c -> K(label = c.first, code = idx, kind = Kind.EMOJI_CAT) }
         buildRows(listOf(bottomBar(tabs)))
     }
@@ -663,7 +699,7 @@ class FarisKeyboardService : InputMethodService() {
             col.addView(tv, lpar)
         }
         sv.addView(col)
-        container.addView(sv, LinearLayout.LayoutParams(MP, 0, 5f))
+        container.addView(sv, LinearLayout.LayoutParams(MP, (unitPx * 5f).toInt()))
         buildRows(listOf(bottomBar(listOf(K(label = "🗑 مسح الكل", kind = Kind.CLIP_CLEAR, weight = 4f)))))
     }
 
@@ -700,7 +736,7 @@ class FarisKeyboardService : InputMethodService() {
             }
             grid.addView(row, LinearLayout.LayoutParams(MP, 0, 1f))
         }
-        container.addView(grid, LinearLayout.LayoutParams(MP, 0, 5f))
+        container.addView(grid, LinearLayout.LayoutParams(MP, (unitPx * 5f).toInt()))
         buildRows(listOf(bottomBar(emptyList())))
     }
 
@@ -720,6 +756,7 @@ class FarisKeyboardService : InputMethodService() {
     private fun colorFor(k: K): Int = when {
         isActive(k) -> th.active
         k.kind == Kind.CHAR || k.kind == Kind.NP -> th.key
+        k.kind == Kind.EMOJI || k.kind == Kind.CLIP || k.kind == Kind.MIC || k.kind == Kind.THEME -> th.key
         else -> th.special
     }
 
